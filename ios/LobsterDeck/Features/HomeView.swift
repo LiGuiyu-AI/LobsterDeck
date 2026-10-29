@@ -36,8 +36,27 @@ struct HomeView: View {
                         }
                     } else if state.isLoading {
                         skeleton
+                    } else if let err = state.lastError {
+                        GlassCard {
+                            VStack(spacing: 10) {
+                                Image(systemName: "wifi.exclamationmark")
+                                    .font(.system(size: 24)).foregroundStyle(.secondary)
+                                Text(err)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                Button("重新加载") { Task { await state.refreshAll() } }
+                                    .buttonStyle(.glass)
+                            }
+                        }
                     } else {
-                        GlassCard { EmptyHint(icon: "sparkles", text: "下拉刷新，看看最近的动静") }
+                        GlassCard {
+                            VStack(spacing: 10) {
+                                EmptyHint(icon: "sparkles", text: "还没有内容")
+                                Button("加载") { Task { await state.refreshAll() } }
+                                    .buttonStyle(.glass)
+                            }
+                        }
                     }
 
                     footer
@@ -47,6 +66,9 @@ struct HomeView: View {
             }
             .scrollIndicators(.hidden)
             .refreshable { await state.refreshAll() }
+            .task {
+                if state.overview == nil { await state.refreshAll() }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

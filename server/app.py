@@ -398,10 +398,14 @@ def resolve_module(m: dict) -> dict:
         out["items"] = [{"title": r["title"], "subtitle": r["date"], "id": r["id"],
                          "shared": r["shared"]} for r in reports_list()[:limit]]
     elif kind == "list" and src == "files":
+        prefix = m.get("prefix")
+        pool = files_recent(400) if prefix else files_recent(limit)
+        if prefix:
+            pool = [f for f in pool if f["path"].startswith(prefix)][:limit]
         out["items"] = [{"title": f["name"],
                          "subtitle": f"{f['size_h']} · " + iso(f["mtime"])[:16].replace("T", " "),
                          "path": f["path"], "new": f.get("new", False)}
-                        for f in files_recent(limit)]
+                        for f in pool]
     elif kind == "agents":
         out["items"] = [{"title": a["label"],
                          "subtitle": a["last"][:16].replace("T", " "),

@@ -108,6 +108,7 @@ struct SetupView: View {
                             Task {
                                 testing = true
                                 message = await state.testConnection()
+                                if message == nil { await state.refreshAll() }
                                 testing = false
                             }
                         } label: {
