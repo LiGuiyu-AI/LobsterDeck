@@ -1,6 +1,7 @@
 import SwiftUI
 import QuickLook
 import UIKit
+import UniformTypeIdentifiers
 
 struct FilesView: View {
     @Environment(AppState.self) private var state
@@ -8,7 +9,7 @@ struct FilesView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 16) {
                     if !state.recentFiles.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             SectionHeader(title: "最近变化", subtitle: "文件站里最新落下的东西")
@@ -29,7 +30,7 @@ struct FilesView: View {
                         }
                     }
 
-                    FileBrowserView(path: "")
+                    FileBrowserView(path: "", scrolls: false)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
@@ -39,7 +40,7 @@ struct FilesView: View {
             .navigationTitle("文件")
             .navigationDestination(for: Route.self) { route in
                 switch route {
-                case .folder(let p): FileBrowserView(path: p)
+                case .folder(let p): FileBrowserView(path: p, scrolls: true)
                 case .file(let p): FilePreviewScreen(path: p)
                 default: EmptyView()
                 }
@@ -97,86 +98,141 @@ struct RecentFileCard: View {
 
 struct FileBrowserView: View {
     let path: String
+    var scrolls: Bool = true
     @Environment(AppState.self) private var state
 
     @State private var listing: FileListing?
     @State private var error: String?
+    @State private var importing = false
+    @State private var uploading = false
+    @State private var notice: String?
 
     var body: some View {
         Group {
+            if scrolls {
+                ScrollView { content.padding(.horizontal, 16).padding(.bottom, 24) }
+                    .scrollIndicators(.hidden)
+                    .refreshable { await load() }
+            } else {
+                content
+            }
+        }
+        .navigationTitle(path.isEmpty ? "文件站" : (path as NSString).lastPathComponent)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { importing = true } label: {
+                    Image(systemName: uploading ? "arrow.up.circle" : "arrow.up.doc")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(width: 30, height: 30)
+                }
+                .disabled(uploading)
+                .accessibilityLabel("上传文件")
+            }
+        }
+        .fileImporter(isPresented: $importing,
+                      allowedContentTypes: [.item],
+                      allowsMultipleSelection: true) { result in
+            Task { await handleImport(result) }
+        }
+        .task(id: path) { await load() }
+        .alert("上传", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
+            Button("好") { notice = nil }
+        } message: {
+            Text(notice ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if uploading {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("正在上传…").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
             if let listing {
-                VStack(alignment: .leading, spacing: 12) {
-                    if !listing.dirs.isEmpty {
-                        SoftList {
-                            LazyVStack(spacing: 2) {
-                                ForEach(Array(listing.dirs.enumerated()), id: \.element.id) { idx, d in
-                                    NavigationLink(value: Route.folder(d.path)) {
-                                        HStack(spacing: 12) {
-                                            Image(systemName: "folder.fill")
-                                                .font(.system(size: 15))
-                                                .foregroundStyle(Color.lobster)
-                                                .frame(width: 30)
-                                            Text(d.name).font(.subheadline)
-                                            Spacer()
-                                            RowChevron()
-                                        }
-                                        .padding(.vertical, 7)
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    if idx < listing.dirs.count - 1 { Divider().opacity(0.3).padding(.leading, 42) }
+                if !listing.dirs.isEmpty {
+                    SoftList {
+                        LazyVStack(spacing: 2) {
+                            ForEach(Array(listing.dirs.enumerated()), id: \.element.id) { idx, d in
+                                NavigationLink(value: Route.folder(d.path)) {
+                                    dirRow(d)
+                                }
+                                .buttonStyle(.plain)
+                                if idx < listing.dirs.count - 1 {
+                                    Divider().opacity(0.25).padding(.leading, 40)
                                 }
                             }
                         }
-                    }
-
-                    if !listing.files.isEmpty {
-                        SoftList {
-                            LazyVStack(spacing: 2) {
-                                ForEach(Array(listing.files.enumerated()), id: \.element.id) { idx, f in
-                                    NavigationLink(value: Route.file(f.path)) {
-                                        HStack(spacing: 12) {
-                                            Image(systemName: "doc.fill")
-                                                .font(.system(size: 14))
-                                                .foregroundStyle(.secondary)
-                                                .frame(width: 30)
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(f.name).font(.subheadline).lineLimit(1)
-                                                Text("\(f.sizeH ?? "") · \(Fmt.day(f.mtime))")
-                                                    .font(.caption2).foregroundStyle(.secondary)
-                                            }
-                                            Spacer()
-                                            RowChevron()
-                                        }
-                                        .padding(.vertical, 7)
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    if idx < listing.files.count - 1 { Divider().opacity(0.3).padding(.leading, 42) }
-                                }
-                            }
-                        }
-                    }
-
-                    if listing.dirs.isEmpty && listing.files.isEmpty {
-                        GlassCard { EmptyHint(icon: "folder", text: "这里是空的") }
                     }
                 }
+
+                if !listing.files.isEmpty {
+                    SoftList {
+                        LazyVStack(spacing: 2) {
+                            ForEach(Array(listing.files.enumerated()), id: \.element.id) { idx, f in
+                                NavigationLink(value: Route.file(f.path)) {
+                                    fileRow(f)
+                                }
+                                .buttonStyle(.plain)
+                                if idx < listing.files.count - 1 {
+                                    Divider().opacity(0.25).padding(.leading, 40)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if listing.dirs.isEmpty && listing.files.isEmpty {
+                    SoftList { EmptyHint(icon: "folder", text: "这里是空的，可以点右上角上传") }
+                }
             } else if let error {
-                GlassCard {
+                SoftList {
                     VStack(spacing: 10) {
                         Text(error).font(.caption).foregroundStyle(.secondary)
                         Button("重试") { Task { await load() } }.buttonStyle(.glass)
                     }
                 }
             } else {
-                GlassCard { EmptyHint(icon: "hourglass", text: "读取中…") }
+                SoftList { EmptyHint(icon: "hourglass", text: "读取中…") }
             }
         }
-        .navigationTitle(path.isEmpty ? "文件站" : (path as NSString).lastPathComponent)
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: path) { await load() }
-        .refreshable { await load() }
+        .padding(.vertical, 2)
+    }
+
+    private func dirRow(_ d: FileEntry) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "folder.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(Color.lobster)
+                .frame(width: 28)
+            Text(d.name).font(.subheadline)
+            Spacer()
+            RowChevron()
+        }
+        .padding(.vertical, 9)
+        .contentShape(Rectangle())
+    }
+
+    private func fileRow(_ f: FileEntry) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(f.name).font(.subheadline).lineLimit(2)
+                Text("\(f.sizeH ?? "") · \(Fmt.day(f.mtime))")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            RowChevron()
+        }
+        .padding(.vertical, 9)
+        .contentShape(Rectangle())
     }
 
     private func load() async {
@@ -185,6 +241,25 @@ struct FileBrowserView: View {
             listing = res
             error = nil
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func handleImport(_ result: Result<[URL], Error>) async {
+        guard case .success(let urls) = result else { return }
+        uploading = true
+        var ok = 0
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let data = try Data(contentsOf: url)
+                try await state.client().upload(dir: path, name: url.lastPathComponent, data: data)
+                ok += 1
+            } catch {
+                notice = "\(url.lastPathComponent)：\(error.localizedDescription)"
+            }
+        }
+        uploading = false
+        if ok > 0 { await load() }
     }
 }
 
@@ -213,6 +288,16 @@ struct FilePreviewScreen: View {
         }
         .navigationTitle((path as NSString).lastPathComponent)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let localURL {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ShareLink(item: localURL) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                }
+            }
+        }
         .task { await download() }
     }
 

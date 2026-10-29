@@ -2,11 +2,18 @@ import SwiftUI
 
 struct AgentsView: View {
     @Environment(AppState.self) private var state
+    @State private var repo: RepoStats?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 12) {
+                    if let repo {
+                        AgentOverviewCard(repo: repo)
+                            .padding(16)
+                            .glassEffect(.regular.tint(Color.lobster.opacity(0.08)),
+                                         in: .rect(cornerRadius: 24))
+                    }
                     ForEach(state.agents) { a in
                         NavigationLink(value: Route.agent(a.agent)) {
                             AgentRow(agent: a)
@@ -21,8 +28,12 @@ struct AgentsView: View {
                 .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
-            .refreshable { await state.refreshAgents() }
+            .refreshable {
+                await state.refreshAgents()
+                await loadRepo()
+            }
             .navigationTitle("Agent")
+            .task { await loadRepo() }
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .agent(let a): AgentDetailView(agent: a)
@@ -32,6 +43,10 @@ struct AgentsView: View {
             }
         }
     }
+
+    private func loadRepo() async {
+        do { repo = try await state.client().repoStats() } catch { }
+    }
 }
 
 struct AgentRow: View {
@@ -40,7 +55,10 @@ struct AgentRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            AgentAvatar(name: agent.displayName, size: 44)
+            AgentAvatar(name: agent.displayName,
+                        size: 44,
+                        tint: Color(hexString: agent.color),
+                        icon: agent.icon)
             VStack(alignment: .leading, spacing: 4) {
                 Text(agent.displayName).font(.subheadline.weight(.semibold))
                 HStack(spacing: 8) {
@@ -58,7 +76,8 @@ struct AgentRow: View {
             }
         }
         .padding(14)
-        .glassEffect(.regular.tint(Color.lobster.opacity(0.07)), in: .rect(cornerRadius: 20))
+        .glassEffect(.regular.tint((Color(hexString: agent.color) ?? .lobster).opacity(0.10)),
+                     in: .rect(cornerRadius: 20))
         .contentShape(Rectangle())
     }
 }
@@ -116,7 +135,9 @@ struct AgentDetailView: View {
     private var header: some View {
         GlassCard {
             HStack(spacing: 14) {
-                AgentAvatar(name: info?.displayName ?? agent, size: 54)
+                AgentAvatar(name: info?.displayName ?? agent, size: 54,
+                            tint: Color(hexString: info?.color),
+                            icon: info?.icon)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(info?.displayName ?? agent).font(.headline)
                     Text("最近更新 \(Fmt.relative(info?.last))")

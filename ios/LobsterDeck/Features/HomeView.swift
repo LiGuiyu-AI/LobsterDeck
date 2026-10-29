@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @Environment(AppState.self) private var state
@@ -79,16 +80,7 @@ struct HomeView: View {
                 destination(route)
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
-            .overlay(alignment: .bottom) {
-                if let err = state.lastError {
-                    Text(err)
-                        .font(.caption)
-                        .padding(.horizontal, 14).padding(.vertical, 10)
-                        .glassEffect(.regular.tint(.red.opacity(0.35)), in: .capsule)
-                        .padding(.bottom, 8)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
+
         }
     }
 
@@ -152,44 +144,61 @@ struct HomeView: View {
         switch m.kind ?? "list" {
         case "hero": heroCard(m)
         case "agents": agentCard(m)
+        case "agentOverview": agentOverviewCard(m)
         case "actions": actionCard(m)
         default: listCard(m)
         }
     }
 
     private func heroCard(_ m: Module) -> some View {
-        ZStack(alignment: .bottomTrailing) {
+        let accent = Color(hexString: m.accent) ?? .lobster
+        let accent2 = Color(hexString: m.accent2) ?? accent.opacity(0.75)
+        let tags: [HeroTagItem] = m.tags ?? {
+            var base = [HeroTagItem(text: "已同步", icon: "checkmark.circle.fill")]
+            if let t = state.lastRefresh {
+                base.append(HeroTagItem(text: Fmt.relative(Fmt.iso.string(from: t)), icon: "clock"))
+            }
+            return base
+        }()
+
+        return ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(LinearGradient(colors: [Color.lobster, Color.lobsterDeep],
+                .fill(LinearGradient(colors: [accent, accent2],
                                      startPoint: .topLeading, endPoint: .bottomTrailing))
-                .opacity(0.92)
+                .opacity(0.94)
 
-            Image(systemName: "scribble.variable")
-                .font(.system(size: 130, weight: .ultraLight))
-                .foregroundStyle(.white.opacity(0.14))
-                .offset(x: 18, y: 22)
-
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 7) {
                 Text(m.title ?? "你好")
                     .font(.system(size: 25, weight: .bold, design: .rounded))
                 Text(m.subtitle ?? "")
                     .font(.subheadline)
-                    .opacity(0.86)
-                HStack(spacing: 8) {
-                    HeroTag(text: "已同步", icon: "checkmark.circle.fill")
-                    if let t = state.lastRefresh {
-                        HeroTag(text: Fmt.relative(Fmt.iso.string(from: t)), icon: "clock")
+                    .opacity(0.88)
+                if !tags.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
+                            HeroTag(text: tag.text, icon: tag.icon ?? "circle.fill")
+                        }
                     }
+                    .padding(.top, 5)
                 }
-                .padding(.top, 4)
+                Spacer(minLength: 0)
             }
             .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, 20)
+            .padding(.top, 18)
+            .padding(.bottom, 16)
         }
-        .frame(minHeight: 172)
+        .overlay(alignment: .bottomTrailing) {
+            Image(systemName: "scribble.variable")
+                .font(.system(size: 120, weight: .ultraLight))
+                .foregroundStyle(.white.opacity(0.13))
+                .offset(x: 16, y: 18)
+                .allowsHitTesting(false)
+        }
+        .frame(minHeight: 164)
         .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-        .shadow(color: .lobster.opacity(0.35), radius: 22, y: 12)
+        .shadow(color: accent.opacity(0.35), radius: 22, y: 12)
     }
 
     private func listCard(_ m: Module) -> some View {
@@ -226,8 +235,26 @@ struct HomeView: View {
                 NavigationLink(value: Route.file(path)) { DeckRow(item: item, icon: "doc.fill", tint: .orange) }
                     .buttonStyle(.plain)
             } else { DeckRow(item: item, icon: "doc.fill", tint: .orange) }
+        case "memory":
+            if let path = item.path {
+                NavigationLink(value: Route.memoryFile(path)) { DeckRow(item: item, icon: "doc.text", tint: .brown) }
+                    .buttonStyle(.plain)
+            } else { DeckRow(item: item, icon: "doc.text", tint: .brown) }
         default:
             DeckRow(item: item, icon: "circle.fill", tint: .lobster)
+        }
+    }
+
+    private func agentOverviewCard(_ m: Module) -> some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: m.title ?? "记忆库概览", subtitle: m.subtitle)
+                if let repo = state.repoStats {
+                    AgentOverviewCard(repo: repo, compact: true)
+                } else {
+                    EmptyHint(icon: "chart.bar", text: "正在读取仓库统计…")
+                }
+            }
         }
     }
 
@@ -311,6 +338,8 @@ struct HomeView: View {
         case .file(let path): FilePreviewScreen(path: path)
         case .agent(let name): AgentDetailView(agent: name)
         case .commit(let sha): CommitDetailView(sha: sha)
+        case .memory(let p): MemoryBrowser(path: p)
+        case .memoryFile(let p): MemoryFileView(path: p)
         }
     }
 }
@@ -365,6 +394,8 @@ struct DeckRow: View {
 struct AgentAvatar: View {
     let name: String
     var size: CGFloat = 40
+    var tint: Color? = nil
+    var icon: String? = nil
 
     private var hue: Double {
         Double(abs(name.hashValue % 360)) / 360.0
@@ -373,13 +404,23 @@ struct AgentAvatar: View {
     var body: some View {
         ZStack {
             Circle().fill(
-                LinearGradient(colors: [Color(hue: hue, saturation: 0.55, brightness: 0.95),
-                                        Color(hue: hue, saturation: 0.75, brightness: 0.72)],
+                LinearGradient(colors: [tint?.opacity(0.95) ?? Color(hue: hue, saturation: 0.55, brightness: 0.95),
+                                        tint?.opacity(0.70) ?? Color(hue: hue, saturation: 0.75, brightness: 0.72)],
                                startPoint: .topLeading, endPoint: .bottomTrailing)
             )
-            Text(String(name.prefix(2)))
-                .font(.system(size: size * 0.34, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+            if let icon,
+               let comma = icon.firstIndex(of: ","),
+               let data = Data(base64Encoded: String(icon[icon.index(after: comma)...])),
+               let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(size * 0.18)
+            } else {
+                Text(String(name.prefix(2)))
+                    .font(.system(size: size * 0.34, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
         }
         .frame(width: size, height: size)
     }

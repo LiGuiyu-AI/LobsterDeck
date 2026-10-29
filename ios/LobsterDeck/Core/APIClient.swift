@@ -99,6 +99,32 @@ struct APIClient {
     func assetsBase(report: String) -> URL {
         base.appendingPathComponent("api/v1/report-assets/reports")
     }
+
+    func memory(path: String) async throws -> MemoryListing {
+        try await get("/api/v1/memory", ["path": path])
+    }
+
+    func memoryFile(path: String) async throws -> MemoryFile {
+        try await get("/api/v1/memory/file", ["path": path])
+    }
+
+    func repoStats() async throws -> RepoStats {
+        try await get("/api/v1/repo")
+    }
+
+    func upload(dir: String, name: String, data: Data) async throws {
+        let url = try makeURL("/api/v1/files/upload", ["path": dir, "name": name])
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 120
+        req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        req.setValue(String(data.count), forHTTPHeaderField: "Content-Length")
+        let (_, resp) = try await URLSession.shared.upload(for: req, from: data)
+        guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.server("上传失败")
+        }
+    }
 }
 
 struct TokenResult: Codable { var ok: Bool; var token: String? }

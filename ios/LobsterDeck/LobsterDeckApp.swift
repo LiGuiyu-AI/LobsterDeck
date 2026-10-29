@@ -40,7 +40,7 @@ struct MainTabs: View {
     @Environment(AppState.self) private var state
     @State private var selection: DeckTab = .home
 
-    enum DeckTab: Hashable { case home, reports, files, agents }
+    enum DeckTab: Hashable { case home, reports, files, memory, agents }
 
     var body: some View {
         TabView(selection: $selection) {
@@ -52,6 +52,9 @@ struct MainTabs: View {
             }
             Tab("文件", systemImage: "folder", value: .files) {
                 FilesView()
+            }
+            Tab("记忆", systemImage: "brain", value: .memory) {
+                MemoryView()
             }
             Tab("Agent", systemImage: "brain.head.profile", value: .agents) {
                 AgentsView()

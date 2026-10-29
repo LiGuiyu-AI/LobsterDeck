@@ -337,6 +337,8 @@ def agents_overview() -> list:
     for d in by.values():
         d["files"] = len(d["files"])
         d["commits_30d"] = sum(1 for c in cs if c["agent"] == d["agent"] and _age_days(c["date"]) <= 30)
+        d["color"] = agent_color(d["agent"])
+        d["icon"] = agent_icon(d["agent"])
         out.append(d)
     out.sort(key=lambda x: (x["last"] or "", x["label"]), reverse=True)
     return out
@@ -358,6 +360,165 @@ def commit_detail(sha: str) -> dict:
             "subject": parts[4] if len(parts) > 4 else "",
             "body": parts[5] if len(parts) > 5 else "",
             "patch": patch}
+
+
+# repo overview / memory -----------------------------------------------------
+AGENT_COLORS = {
+    "OpenClaw": "#FF7A18", "ClaudeCode": "#D97757", "GitHubCopilot": "#8B949E",
+    "Qoder": "#6C8CFF", "KimiCode": "#7C5CFF", "ZCode": "#2FBF71",
+    "DeepSeekHarness": "#4D6BFE", "WorkBuddy": "#F2B01E", "Reasonix": "#FF5C8A",
+    "Pi": "#14B8A6", "OpenCode": "#A3E635", "Cursor": "#C7C9D1",
+    "Antigravity": "#8B5CF6", "Codex": "#10A37F", "Gemini": "#4285F4",
+}
+FALLBACK_COLORS = ["#FF7A18", "#4D6BFE", "#2FBF71", "#FF5C8A", "#8B5CF6", "#F2B01E"]
+
+
+ICON_DIR = Path("/opt/openclaw/.openclaw/data/agent-activity/icons")
+ICON_MAP = {
+    "OpenClaw": "openclaw.png", "Cursor": "cursor.png", "DeepSeekHarness": "deepseek.png",
+    "Gemini": "gemini.png", "KimiCode": "kimi.png", "Pi": "pi.png", "Qoder": "qoder.png",
+    "Reasonix": "reasonix.png", "Antigravity": "antigravity.png",
+}
+
+
+def agent_icon(name: str) -> str:
+    fn = ICON_MAP.get(name)
+    if not fn:
+        return ""
+    p = ICON_DIR / fn
+    if not p.is_file():
+        return ""
+    try:
+        import base64
+        return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
+    except Exception:
+        return ""
+
+
+def agent_color(name: str) -> str:
+    if name in AGENT_COLORS:
+        return AGENT_COLORS[name]
+    return FALLBACK_COLORS[sum(ord(c) for c in name) % len(FALLBACK_COLORS)]
+
+
+def repo_stats() -> dict:
+    commits_count = int((git("rev-list", "--count", "HEAD").strip() or "0"))
+    files = len([l for l in git("ls-files").splitlines() if l.strip()])
+    branch = git("rev-parse", "--abbrev-ref", "HEAD").strip() or "unknown"
+    last = git("log", "-1", "--date=iso-strict", "--pretty=format:%ad").strip()
+    size_h = ""
+    try:
+        out = subprocess.run(["du", "-sh", str(LC_REPO / ".git")], capture_output=True,
+                             text=True, timeout=20).stdout.strip()
+        size_h = out.split("	")[0].replace("G", " GB").replace("M", " MB").replace("K", " KB").strip()
+    except Exception:
+        pass
+
+    mem = LC_REPO / "Memory"
+    dirs = [d for d in mem.iterdir() if d.is_dir() and not d.name.startswith(".")] if mem.is_dir() else []
+    with_md = [d for d in dirs if any(d.rglob("*.md"))]
+    md_count = sum(1 for d in dirs for _ in d.rglob("*.md"))
+
+    cs = commits(400)
+    daily = {}
+    for c in cs:
+        day = (c["date"] or "")[:10]
+        if not day:
+            continue
+        slot = daily.setdefault(day, {})
+        who = c["agent"] or "Other"
+        slot[who] = slot.get(who, 0) + 1
+    series = []
+    for day in sorted(daily):
+        agents = daily[day]
+        series.append({"date": day, "total": sum(agents.values()),
+                       "agents": [{"agent": a, "count": n, "color": agent_color(a)}
+                                  for a, n in sorted(agents.items(), key=lambda kv: -kv[1])]})
+
+    return {
+        "commits": commits_count, "files": files, "size": size_h or "-",
+        "branch": branch, "last_commit": last,
+        "memory_dirs": len(dirs), "memory_dirs_with_md": len(with_md),
+        "markdown_files": md_count,
+        "agents": len(dirs),
+        "daily": series[-30:],
+    }
+
+
+def memory_root() -> Path:
+    return LC_REPO / "Memory"
+
+
+def memory_recent(limit: int = 6) -> list:
+    base = memory_root()
+    rows = []
+    if not base.is_dir():
+        return rows
+    for p in base.rglob("*.md"):
+        try:
+            st = p.stat()
+        except Exception:
+            continue
+        rows.append({"name": p.name, "path": str(p.relative_to(base)),
+                     "mtime": st.st_mtime, "size": st.st_size})
+    rows.sort(key=lambda r: r["mtime"], reverse=True)
+    return rows[:limit]
+
+
+def memory_path(rel: str) -> Path:
+    base = memory_root().resolve()
+    target = (base / unquote(rel or "")).resolve()
+    if not str(target).startswith(str(base)):
+        raise ValueError("bad path")
+    return target
+
+
+def memory_list(rel: str) -> dict:
+    target = memory_path(rel)
+    if not target.is_dir():
+        raise FileNotFoundError(rel)
+    dirs, files = [], []
+    for p in sorted(target.iterdir(), key=lambda x: x.name.lower()):
+        if p.name.startswith("."):
+            continue
+        try:
+            st = p.stat()
+        except Exception:
+            continue
+        item = {"name": p.name, "path": str(p.relative_to(memory_root())),
+                "is_dir": p.is_dir(),
+                "size": 0 if p.is_dir() else st.st_size,
+                "size_h": "" if p.is_dir() else human_size(st.st_size),
+                "mtime": iso(st.st_mtime)}
+        (dirs if p.is_dir() else files).append(item)
+    return {"path": rel, "dirs": dirs, "files": files}
+
+
+def memory_read(rel: str) -> dict:
+    p = memory_path(rel)
+    if not p.is_file():
+        raise FileNotFoundError(rel)
+    raw = p.read_text(encoding="utf-8", errors="replace")[:400000]
+    if p.suffix.lower() in (".md", ".markdown"):
+        import markdown as md_mod
+        html = md_mod.markdown(raw, extensions=["fenced_code", "tables", "sane_lists"])
+        return {"name": p.name, "path": rel, "kind": "markdown", "html": html}
+    return {"name": p.name, "path": rel, "kind": "text", "text": raw}
+
+
+def save_upload(rel_dir: str, name: str, data: bytes) -> dict:
+    name = os.path.basename(name or "").strip()
+    if not name or name.startswith(".") or "/" in name or "\\" in name:
+        raise ValueError("bad filename")
+    target_dir = rel_safe(rel_dir)
+    if not target_dir.is_dir():
+        raise ValueError("bad directory")
+    target = target_dir / name
+    tmp = target.with_name(target.name + ".part")
+    tmp.write_bytes(data)
+    os.chmod(tmp, 0o664)
+    os.replace(tmp, target)
+    return {"name": name, "path": str(target.relative_to(INBOX)), "size": len(data)}
 
 
 # home layout ---------------------------------------------------------------
@@ -419,6 +580,11 @@ def resolve_module(m: dict) -> dict:
                          "subtitle": f"{f['size_h']} · " + iso(f["mtime"])[:16].replace("T", " "),
                          "path": f["path"], "new": f.get("new", False)}
                         for f in pool]
+    elif kind == "list" and src == "memory":
+        out["items"] = [{"title": f["name"],
+                         "subtitle": f["path"].rsplit("/", 1)[0] if "/" in f["path"] else "Memory",
+                         "path": f["path"]}
+                        for f in memory_recent(limit)]
     elif kind == "agents":
         out["items"] = [{"title": a["label"],
                          "subtitle": a["last"][:16].replace("T", " "),
@@ -518,6 +684,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {"items": agents_overview()})
             elif p == "/api/v1/agents/commit":
                 self._json(200, commit_detail(q.get("sha", [""])[0]))
+            elif p == "/api/v1/repo":
+                self._json(200, repo_stats())
+            elif p == "/api/v1/memory":
+                self._json(200, memory_list(q.get("path", [""])[0]))
+            elif p == "/api/v1/memory/file":
+                self._json(200, memory_read(q.get("path", [""])[0]))
             elif p.startswith("/api/v1/agents/") and p.endswith("/commits"):
                 name = p.split("/")[-2]
                 limit = int(q.get("limit", ["40"])[0])
@@ -550,8 +722,24 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._guard():
             return
-        p = urlparse(self.path).path
+        u = urlparse(self.path)
+        p, q = u.path, parse_qs(u.query)
         try:
+            if p == "/api/v1/files/upload":
+                rel_dir = q.get("path", [""])[0]
+                name = q.get("name", [""])[0]
+                n = int(self.headers.get("Content-Length", 0) or 0)
+                if n <= 0 or n > 300 * 1024 * 1024:
+                    raise ValueError("bad size")
+                chunks, left = [], n
+                while left > 0:
+                    block = self.rfile.read(min(1 << 20, left))
+                    if not block:
+                        break
+                    chunks.append(block)
+                    left -= len(block)
+                self._json(200, save_upload(rel_dir, name, b"".join(chunks)))
+                return
             if p == "/api/v1/reports/tokens":
                 data = read_json(self)
                 name, action = data.get("file", ""), data.get("action", "")

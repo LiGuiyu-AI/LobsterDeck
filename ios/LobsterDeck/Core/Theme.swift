@@ -192,7 +192,21 @@ enum Fmt {
 
 /// A light, non-glass container for long lists. Liquid Glass on a very tall
 /// card gets expensive and visually heavy, so file/folder lists use this.
+
+
+extension Color {
+    init?(hexString: String?) {
+        guard var h = hexString?.trimmingCharacters(in: .whitespaces), !h.isEmpty else { return nil }
+        if h.hasPrefix("#") { h.removeFirst() }
+        guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
+        self.init(hex: v)
+    }
+}
+
+/// Soft card used for long file / memory lists: white translucency with a
+/// hairline grey border, no Liquid Glass, so hundreds of rows stay scrollable.
 struct SoftList<Content: View>: View {
+    @Environment(\.colorScheme) private var scheme
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -200,6 +214,13 @@ struct SoftList<Content: View>: View {
             .padding(.vertical, 4)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.primary.opacity(0.045), in: .rect(cornerRadius: 18))
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.white.opacity(scheme == .dark ? 0.06 : 0.55))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.gray.opacity(0.22), lineWidth: 1)
+            )
     }
 }

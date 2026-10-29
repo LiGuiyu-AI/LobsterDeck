@@ -22,9 +22,16 @@ struct Module: Codable, Identifiable, Equatable {
     var title: String?
     var subtitle: String?
     var accent: String?
+    var accent2: String?
+    var tags: [HeroTagItem]?
     var source: String?
     var limit: Int?
     var items: [Item]?
+}
+
+struct HeroTagItem: Codable, Equatable {
+    var text: String
+    var icon: String?
 }
 
 struct Item: Codable, Equatable {
@@ -85,6 +92,8 @@ struct AgentInfo: Codable, Identifiable, Equatable {
     var commits30d: Int?
     var files: Int?
     var memoryFiles: Int?
+    var color: String?
+    var icon: String?
     var last: String?
     var recent: [RecentCommit]?
 
@@ -115,4 +124,56 @@ struct Health: Codable {
     var ok: Bool
     var version: String?
     var time: String?
+}
+
+
+struct RepoStats: Codable {
+    var commits: Int?
+    var files: Int?
+    var size: String?
+    var branch: String?
+    var lastCommit: String?
+    var memoryDirs: Int?
+    var memoryDirsWithMd: Int?
+    var markdownFiles: Int?
+    var agents: Int?
+    var daily: [DailyPoint]?
+}
+
+struct DailyPoint: Codable, Identifiable, Equatable {
+    var date: String
+    var total: Int
+    var agents: [AgentSlice]
+    var id: String { date }
+}
+
+struct AgentSlice: Codable, Equatable {
+    var agent: String
+    var count: Int
+    var color: String?
+}
+
+struct MemoryEntry: Codable, Identifiable, Equatable {
+    var name: String
+    var path: String
+    var isDir: Bool?
+    var size: Int?
+    var sizeH: String?
+    var mtime: String?
+    var id: String { path }
+    var isDirectory: Bool { isDir ?? false }
+}
+
+struct MemoryListing: Codable {
+    var path: String
+    var dirs: [MemoryEntry]
+    var files: [MemoryEntry]
+}
+
+struct MemoryFile: Codable {
+    var name: String
+    var path: String
+    var kind: String
+    var html: String?
+    var text: String?
 }

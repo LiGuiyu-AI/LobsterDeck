@@ -19,6 +19,7 @@ final class AppState {
     var reports: [Report] = []
     var agents: [AgentInfo] = []
     var recentFiles: [FileEntry] = []
+    var repoStats: RepoStats?
 
     var isLoading = false
     var lastError: String?
@@ -72,11 +73,13 @@ final class AppState {
             async let rp: ReportList = api.get("/api/v1/reports")
             async let ag: AgentList = api.get("/api/v1/agents")
             async let fl: RecentFiles = api.get("/api/v1/files/recent", ["limit": "8"])
-            let (o, r, a, f) = try await (ov, rp, ag, fl)
+            async let rs: RepoStats = api.get("/api/v1/repo")
+            let (o, r, a, f, repo) = try await (ov, rp, ag, fl, rs)
             overview = o
             reports = r.items
             agents = a.items
             recentFiles = f.items
+            repoStats = repo
             lastRefresh = Date()
             lastError = nil
         } catch {
@@ -114,4 +117,6 @@ enum Route: Hashable {
     case file(String)
     case agent(String)
     case commit(String)
+    case memory(String)
+    case memoryFile(String)
 }
