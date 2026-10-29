@@ -26,7 +26,7 @@ final class AppState {
     var healthVersion: String?
 
     init() {
-        serverURL = UserDefaults.standard.string(forKey: urlKey) ?? ""
+        serverURL = UserDefaults.standard.string(forKey: urlKey) ?? "https://deck.liguiyu.com"
         token = Keychain.get(tokenKey) ?? ""
     }
 

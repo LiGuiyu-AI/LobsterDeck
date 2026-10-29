@@ -84,7 +84,7 @@ LOBSTERDECK_PORT=3320 python3 server/app.py
 Agent 侧更新：
 
 ```bash
-LOBSTERDECK_URL=https://deck.example.com LOBSTERDECK_TOKEN=... \
+LOBSTERDECK_URL=https://deck.liguiyu.com LOBSTERDECK_TOKEN=... \
   python3 server/update_home.py layout.json
 ```
 
