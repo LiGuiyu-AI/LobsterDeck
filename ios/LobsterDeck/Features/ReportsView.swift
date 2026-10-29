@@ -49,7 +49,6 @@ struct ReportsView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .frame(width: 32, height: 32)
                     }
-                    .buttonStyle(.glass)
                 }
             }
             .sheet(isPresented: $showShared) {
@@ -148,7 +147,6 @@ struct ReportDetailView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .frame(width: 34, height: 34)
                 }
-                .buttonStyle(.glass)
             }
         }
         .sheet(isPresented: $showShare) {

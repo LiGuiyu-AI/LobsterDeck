@@ -51,34 +51,50 @@ struct AgentsView: View {
 
 struct AgentRow: View {
     let agent: AgentInfo
-    @Environment(\.colorScheme) private var scheme
+
+    private var color: Color { Color(hexString: agent.color) ?? .lobster }
 
     var body: some View {
-        HStack(spacing: 13) {
-            AgentAvatar(name: agent.displayName,
-                        size: 44,
-                        tint: Color(hexString: agent.color),
-                        icon: agent.icon)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(agent.displayName).font(.subheadline.weight(.semibold))
-                HStack(spacing: 8) {
-                    Text("\(agent.commits30d ?? 0) 次 / 30天")
-                    Text("·")
-                    Text("\(agent.memoryFiles ?? agent.files ?? 0) 个记忆文件")
-                }
-                .font(.caption2).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(spacing: 10) {
+                AgentAvatar(name: agent.displayName, size: 30, tint: color, icon: agent.icon)
+                Text(agent.displayName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 6)
+                Text(agent.last == nil ? "暂无活跃" : "活跃 \(Fmt.relative(agent.last))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(agent.last == nil ? "暂无提交" : Fmt.relative(agent.last))
-                    .font(.caption2).foregroundStyle(.secondary)
-                RowChevron()
+
+            HStack(spacing: 20) {
+                stat("COMMITS", agent.commits ?? 0)
+                stat("FILES", agent.memoryFiles ?? agent.files ?? 0)
+                stat("TOUCHES", agent.touches ?? 0)
             }
         }
         .padding(14)
-        .glassEffect(.regular.tint((Color(hexString: agent.color) ?? .lobster).opacity(0.10)),
-                     in: .rect(cornerRadius: 20))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LinearGradient(colors: [color.opacity(0.22), color.opacity(0.04)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(color.opacity(0.30), lineWidth: 0.8)
+        )
         .contentShape(Rectangle())
+    }
+
+    private func stat(_ label: String, _ value: Int) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text("\(value)")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+            Text(label)
+                .font(.system(size: 8, weight: .bold))
+                .tracking(0.5)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -101,6 +117,10 @@ struct AgentDetailView: View {
     let agent: String
     @Environment(AppState.self) private var state
 
+    private var color: Color {
+        Color(hexString: info?.color) ?? .lobster
+    }
+
     @State private var commits: [AgentCommit] = []
     @State private var error: String?
 
@@ -112,7 +132,7 @@ struct AgentDetailView: View {
                 header
                 ForEach(commits) { c in
                     NavigationLink(value: Route.commit(c.sha)) {
-                        CommitRow(commit: c)
+                        CommitRow(commit: c, tint: color)
                     }
                     .buttonStyle(.plain)
                 }
@@ -126,14 +146,19 @@ struct AgentDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
-        .background(AppBackground())
+        .background(
+            ZStack {
+                AppBackground()
+                color.opacity(0.10).ignoresSafeArea()
+            }
+        )
         .navigationTitle(info?.displayName ?? agent)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
     }
 
     private var header: some View {
-        GlassCard {
+        GlassCard(tint: color) {
             HStack(spacing: 14) {
                 AgentAvatar(name: info?.displayName ?? agent, size: 54,
                             tint: Color(hexString: info?.color),
@@ -161,6 +186,7 @@ struct AgentDetailView: View {
 
 struct CommitRow: View {
     let commit: AgentCommit
+    var tint: Color = .lobster
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -183,7 +209,7 @@ struct CommitRow: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(Color.lobster.opacity(0.05)), in: .rect(cornerRadius: 18))
+        .glassEffect(.regular.tint(tint.opacity(0.08)), in: .rect(cornerRadius: 18))
         .contentShape(Rectangle())
     }
 }

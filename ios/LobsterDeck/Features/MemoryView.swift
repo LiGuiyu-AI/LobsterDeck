@@ -5,7 +5,7 @@ struct MemoryView: View {
     var body: some View {
         NavigationStack {
             MemoryBrowser(path: "")
-                .navigationTitle("记忆")
+                .navigationTitle("记忆库")
                 .navigationDestination(for: Route.self) { route in
                     switch route {
                     case .memory(let p): MemoryBrowser(path: p)
@@ -34,7 +34,7 @@ struct MemoryBrowser: View {
                                 ForEach(Array(listing.dirs.enumerated()), id: \.element.id) { idx, d in
                                     NavigationLink(value: Route.memory(d.path)) {
                                         HStack(spacing: 12) {
-                                            Image(systemName: "brain.head.profile")
+                                            Image(systemName: d.name == "Memory" ? "brain.head.profile" : "folder.fill")
                                                 .font(.system(size: 14))
                                                 .foregroundStyle(Color.lobster)
                                                 .frame(width: 28)
@@ -60,7 +60,7 @@ struct MemoryBrowser: View {
                                 ForEach(Array(listing.files.enumerated()), id: \.element.id) { idx, f in
                                     NavigationLink(value: Route.memoryFile(f.path)) {
                                         HStack(spacing: 12) {
-                                            Image(systemName: f.name.hasSuffix(".md") ? "doc.text" : "doc")
+                                            Image(systemName: iconFor(f))
                                                 .font(.system(size: 14))
                                                 .foregroundStyle(.secondary)
                                                 .frame(width: 28)
@@ -104,16 +104,26 @@ struct MemoryBrowser: View {
         }
         .scrollIndicators(.hidden)
         .refreshable { await load() }
-        .navigationTitle(path.isEmpty ? "记忆" : (path as NSString).lastPathComponent)
+        .navigationTitle(path.isEmpty ? "LobsterContext" : (path as NSString).lastPathComponent)
         .navigationBarTitleDisplayMode(path.isEmpty ? .large : .inline)
         .task(id: path) { await load() }
     }
 
     private func load() async {
         do {
-            listing = try await state.client().memory(path: path)
+            listing = try await state.client().repoTree(path: path)
             error = nil
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func iconFor(_ f: MemoryEntry) -> String {
+        switch (f.ext ?? "").lowercased() {
+        case ".md", ".markdown": return "doc.text"
+        case ".json", ".yml", ".yaml", ".toml": return "curlybraces"
+        case ".png", ".jpg", ".jpeg", ".svg", ".webp": return "photo"
+        case ".sh", ".py", ".js", ".ts", ".swift": return "chevron.left.forwardslash.chevron.right"
+        default: return "doc"
+        }
     }
 }
 
@@ -150,7 +160,7 @@ struct MemoryFileView: View {
     }
 
     private func load() async {
-        do { file = try await state.client().memoryFile(path: path) }
+        do { file = try await state.client().repoFile(path: path) }
         catch { self.error = error.localizedDescription }
     }
 }

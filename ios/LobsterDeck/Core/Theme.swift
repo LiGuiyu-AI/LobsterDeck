@@ -165,6 +165,7 @@ enum Fmt {
     static func relative(_ s: String?) -> String {
         guard let d = date(s) else { return s ?? "" }
         let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: "zh_CN")
         f.unitsStyle = .short
         return f.localizedString(for: d, relativeTo: Date())
     }

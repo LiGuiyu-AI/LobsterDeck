@@ -308,15 +308,17 @@ def _age_days(s: str) -> float:
 
 
 def agents_overview() -> list:
-    cs = commits(200)
+    cs = commits(600)
     by = {}
     for c in cs:
         a = c["agent"]
         if not a:
             continue
         d = by.setdefault(a, {"agent": a, "label": AGENT_LABELS.get(a, a),
-                              "commits": 0, "last": c["date"], "files": set(), "recent": []})
+                              "commits": 0, "last": c["date"], "files": set(),
+                              "touches": 0, "recent": []})
         d["commits"] += 1
+        d["touches"] += len(c["files"])
         d["files"].update(c["files"])
         if len(d["recent"]) < 3:
             d["recent"].append({"sha": c["sha"], "subject": c["subject"], "date": c["date"]})
@@ -336,6 +338,7 @@ def agents_overview() -> list:
     out = []
     for d in by.values():
         d["files"] = len(d["files"])
+        d.setdefault("touches", 0)
         d["commits_30d"] = sum(1 for c in cs if c["agent"] == d["agent"] and _age_days(c["date"]) <= 30)
         d["color"] = agent_color(d["agent"])
         d["icon"] = agent_icon(d["agent"])
@@ -447,6 +450,54 @@ def repo_stats() -> dict:
 
 def memory_root() -> Path:
     return LC_REPO / "Memory"
+
+
+def repo_path(rel: str) -> Path:
+    base = LC_REPO.resolve()
+    target = (base / unquote(rel or "")).resolve()
+    if not str(target).startswith(str(base)):
+        raise ValueError("bad path")
+    return target
+
+
+def repo_list(rel: str) -> dict:
+    target = repo_path(rel)
+    if not target.is_dir():
+        raise FileNotFoundError(rel)
+    dirs, files = [], []
+    for p in sorted(target.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+        if p.name.startswith(".") or p.name in ("node_modules", "__pycache__"):
+            continue
+        try:
+            st = p.stat()
+        except Exception:
+            continue
+        item = {"name": p.name, "path": str(p.relative_to(LC_REPO)),
+                "is_dir": p.is_dir(),
+                "size": 0 if p.is_dir() else st.st_size,
+                "size_h": "" if p.is_dir() else human_size(st.st_size),
+                "mtime": iso(st.st_mtime),
+                "ext": "" if p.is_dir() else p.suffix.lower()}
+        (dirs if p.is_dir() else files).append(item)
+    return {"path": rel, "dirs": dirs, "files": files}
+
+
+TEXT_EXT = {".md", ".markdown", ".txt", ".json", ".yml", ".yaml", ".toml", ".py",
+            ".sh", ".swift", ".js", ".ts", ".css", ".html", ".gitignore"}
+
+
+def repo_read(rel: str) -> dict:
+    p = repo_path(rel)
+    if not p.is_file():
+        raise FileNotFoundError(rel)
+    if p.suffix.lower() not in TEXT_EXT and p.name != "LICENSE":
+        raise ValueError("unsupported file type")
+    raw = p.read_text(encoding="utf-8", errors="replace")[:400000]
+    if p.suffix.lower() in (".md", ".markdown"):
+        import markdown as md_mod
+        html = md_mod.markdown(raw, extensions=["fenced_code", "tables", "sane_lists"])
+        return {"name": p.name, "path": rel, "kind": "markdown", "html": html}
+    return {"name": p.name, "path": rel, "kind": "text", "text": raw}
 
 
 def memory_recent(limit: int = 6) -> list:
@@ -686,6 +737,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, commit_detail(q.get("sha", [""])[0]))
             elif p == "/api/v1/repo":
                 self._json(200, repo_stats())
+            elif p == "/api/v1/repo/tree":
+                self._json(200, repo_list(q.get("path", [""])[0]))
+            elif p == "/api/v1/repo/file":
+                self._json(200, repo_read(q.get("path", [""])[0]))
             elif p == "/api/v1/memory":
                 self._json(200, memory_list(q.get("path", [""])[0]))
             elif p == "/api/v1/memory/file":

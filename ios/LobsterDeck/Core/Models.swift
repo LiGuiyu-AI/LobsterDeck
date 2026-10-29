@@ -91,6 +91,7 @@ struct AgentInfo: Codable, Identifiable, Equatable {
     var commits: Int?
     var commits30d: Int?
     var files: Int?
+    var touches: Int?
     var memoryFiles: Int?
     var color: String?
     var icon: String?
@@ -156,6 +157,7 @@ struct AgentSlice: Codable, Equatable {
 struct MemoryEntry: Codable, Identifiable, Equatable {
     var name: String
     var path: String
+    var ext: String?
     var isDir: Bool?
     var size: Int?
     var sizeH: String?

@@ -108,6 +108,14 @@ struct APIClient {
         try await get("/api/v1/memory/file", ["path": path])
     }
 
+    func repoTree(path: String) async throws -> MemoryListing {
+        try await get("/api/v1/repo/tree", ["path": path])
+    }
+
+    func repoFile(path: String) async throws -> MemoryFile {
+        try await get("/api/v1/repo/file", ["path": path])
+    }
+
     func repoStats() async throws -> RepoStats {
         try await get("/api/v1/repo")
     }
