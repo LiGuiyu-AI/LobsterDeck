@@ -32,7 +32,7 @@ struct AgentOverviewCard: View {
                     HStack {
                         Text("近 30 天提交").font(.caption.weight(.semibold))
                         Spacer()
-                        Text("\(daily.reduce(0) { $0 + $1.total })").font(.caption2).foregroundStyle(.secondary)
+                        Text(String(totalCommits(daily))).font(.caption2).foregroundStyle(.secondary)
                     }
                     ActivityChart(daily: daily)
                         .frame(height: 92)
@@ -78,6 +78,10 @@ struct AgentOverviewCard: View {
         }
         .font(.system(size: 9))
         .foregroundStyle(.tertiary)
+    }
+
+    private func totalCommits(_ daily: [DailyPoint]) -> Int {
+        daily.reduce(0) { $0 + $1.total }
     }
 
     private func short(_ d: String?) -> String {

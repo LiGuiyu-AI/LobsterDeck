@@ -151,54 +151,20 @@ struct HomeView: View {
     }
 
     private func heroCard(_ m: Module) -> some View {
-        let accent = Color(hexString: m.accent) ?? .lobster
-        let accent2 = Color(hexString: m.accent2) ?? accent.opacity(0.75)
-        let tags: [HeroTagItem] = m.tags ?? {
-            var base = [HeroTagItem(text: "已同步", icon: "checkmark.circle.fill")]
-            if let t = state.lastRefresh {
-                base.append(HeroTagItem(text: Fmt.relative(Fmt.iso.string(from: t)), icon: "clock"))
-            }
-            return base
-        }()
+        HeroCardView(title: m.title ?? "你好",
+                     subtitle: m.subtitle ?? "",
+                     accent: Color(hexString: m.accent) ?? .lobster,
+                     accent2: Color(hexString: m.accent2) ?? .lobsterDeep,
+                     tags: heroTags(m))
+    }
 
-        return ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(LinearGradient(colors: [accent, accent2],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .opacity(0.94)
-
-            VStack(alignment: .leading, spacing: 7) {
-                Text(m.title ?? "你好")
-                    .font(.system(size: 25, weight: .bold, design: .rounded))
-                Text(m.subtitle ?? "")
-                    .font(.subheadline)
-                    .opacity(0.88)
-                if !tags.isEmpty {
-                    HStack(spacing: 8) {
-                        ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
-                            HeroTag(text: tag.text, icon: tag.icon ?? "circle.fill")
-                        }
-                    }
-                    .padding(.top, 5)
-                }
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.horizontal, 20)
-            .padding(.top, 18)
-            .padding(.bottom, 16)
+    private func heroTags(_ m: Module) -> [HeroTagItem] {
+        if let tags = m.tags { return tags }
+        var base = [HeroTagItem(text: "已同步", icon: "checkmark.circle.fill")]
+        if let refresh = state.lastRefresh {
+            base.append(HeroTagItem(text: Fmt.relative(Fmt.iso.string(from: refresh)), icon: "clock"))
         }
-        .overlay(alignment: .bottomTrailing) {
-            Image(systemName: "scribble.variable")
-                .font(.system(size: 120, weight: .ultraLight))
-                .foregroundStyle(.white.opacity(0.13))
-                .offset(x: 16, y: 18)
-                .allowsHitTesting(false)
-        }
-        .frame(minHeight: 164)
-        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-        .shadow(color: accent.opacity(0.35), radius: 22, y: 12)
+        return base
     }
 
     private func listCard(_ m: Module) -> some View {
