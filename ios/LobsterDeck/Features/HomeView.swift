@@ -23,15 +23,10 @@ struct HomeView: View {
                     }
 
                     if let modules = state.overview?.modules {
-                        GlassEffectContainer(spacing: 18) {
-                            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14),
-                                                GridItem(.flexible(), spacing: 14)],
-                                      spacing: 14) {
-                                ForEach(modules) { m in
-                                    moduleView(m)
-                                        .gridCellColumns(span(m))
-                                        .transition(.opacity)
-                                }
+                        DeckFlowLayout(columns: 2, spacing: 10) {
+                            ForEach(modules) { m in
+                                moduleView(m)
+                                    .deckSpan(span(m))
                             }
                         }
                     } else if state.isLoading {
@@ -62,7 +57,7 @@ struct HomeView: View {
                     footer
                 }
                 .padding(.horizontal, 18)
-                .padding(.bottom, 28)
+                .padding(.bottom, 112)
             }
             .scrollIndicators(.hidden)
             .refreshable { await state.refreshAll() }
@@ -71,19 +66,12 @@ struct HomeView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Text("LOBSTER DECK")
-                        .font(.caption2.weight(.black))
-                        .tracking(2)
-                        .foregroundStyle(.secondary)
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: {
                         Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 15, weight: .semibold))
-                            .frame(width: 34, height: 34)
+                            .frame(width: 30, height: 30)
                     }
-                    .buttonStyle(.glass)
                     .accessibilityLabel("设置")
                 }
             }
@@ -151,9 +139,11 @@ struct HomeView: View {
     // MARK: modules
 
     private func span(_ m: Module) -> Int {
-        switch (m.size ?? "large") {
-        case "small": return 1
-        default: return 2
+        switch (m.width ?? "").lowercased() {
+        case "full": return 2
+        case "half": return 1
+        default:
+            return (m.size == "small" || m.size == "half") ? 1 : 2
         }
     }
 
@@ -186,9 +176,9 @@ struct HomeView: View {
                     .font(.subheadline)
                     .opacity(0.86)
                 HStack(spacing: 8) {
-                    GlassPill(text: "已同步", icon: "checkmark.circle.fill", tint: .white)
+                    HeroTag(text: "已同步", icon: "checkmark.circle.fill")
                     if let t = state.lastRefresh {
-                        GlassPill(text: Fmt.relative(Fmt.iso.string(from: t)), icon: "clock", tint: .white)
+                        HeroTag(text: Fmt.relative(Fmt.iso.string(from: t)), icon: "clock")
                     }
                 }
                 .padding(.top, 4)
@@ -346,7 +336,7 @@ struct DeckRow: View {
                 HStack(spacing: 6) {
                     Text(item.title)
                         .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
+                        .lineLimit(2)
                     if item.new == true {
                         Text("NEW")
                             .font(.system(size: 8, weight: .black))

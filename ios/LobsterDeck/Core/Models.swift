@@ -18,6 +18,7 @@ struct Module: Codable, Identifiable, Equatable {
     var id: String
     var kind: String?
     var size: String?
+    var width: String?
     var title: String?
     var subtitle: String?
     var accent: String?
