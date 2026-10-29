@@ -5,6 +5,7 @@ import SwiftUI
 struct ReportsView: View {
     @Environment(AppState.self) private var state
     @State private var query = ""
+    @State private var showShared = false
 
     private var filtered: [Report] {
         guard !query.isEmpty else { return state.reports }
@@ -41,6 +42,20 @@ struct ReportsView: View {
             .refreshable { await state.refreshReports() }
             .navigationTitle("报告")
             .searchable(text: $query, prompt: "搜索报告")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showShared = true } label: {
+                        Image(systemName: "lock.open")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(width: 32, height: 32)
+                    }
+                    .buttonStyle(.glass)
+                }
+            }
+            .sheet(isPresented: $showShared) {
+                SharedReportsSheet()
+                    .presentationDetents([.medium, .large])
+            }
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .report(let id): ReportDetailView(reportID: id)
@@ -192,11 +207,53 @@ struct ReportWebView: UIViewRepresentable {
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             if action.navigationType == .linkActivated, let url = action.request.url,
                url.scheme == "http" || url.scheme == "https" {
-                UIApplication.shared.open(url)
+                var target = url
+                if url.path.hasPrefix("/api/v1/report-assets/") {
+                    let rel = url.path.replacingOccurrences(of: "/api/v1/report-assets/", with: "")
+                    if let mapped = URL(string: "https://reports.liguiyu.com/" + rel) { target = mapped }
+                }
+                UIApplication.shared.open(target)
                 decisionHandler(.cancel)
                 return
             }
             decisionHandler(.allow)
+        }
+    }
+}
+
+
+struct SharedReportsSheet: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+    @State private var active: Report?
+
+    private var shared: [Report] { state.reports.filter { $0.shared == true } }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    if shared.isEmpty {
+                        GlassCard { EmptyHint(icon: "lock", text: "还没有共享中的报告") }
+                    } else {
+                        ForEach(shared) { r in
+                            Button { active = r } label: { ReportRow(report: r) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .navigationTitle("共享管理")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { Button("完成") { dismiss() } }
+            }
+            .sheet(item: $active) { r in
+                ReportTokenSheet(report: r)
+                    .presentationDetents([.medium, .large])
+                    .presentationBackground(.ultraThinMaterial)
+            }
         }
     }
 }
