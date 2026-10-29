@@ -38,9 +38,9 @@ struct RootView: View {
 
 struct MainTabs: View {
     @Environment(AppState.self) private var state
-    @State private var selection: Tab = .home
+    @State private var selection: DeckTab = .home
 
-    enum Tab: Hashable { case home, reports, files, agents }
+    enum DeckTab: Hashable { case home, reports, files, agents }
 
     var body: some View {
         TabView(selection: $selection) {

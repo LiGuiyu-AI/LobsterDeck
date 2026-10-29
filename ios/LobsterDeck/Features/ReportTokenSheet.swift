@@ -133,14 +133,14 @@ struct ReportTokenSheet: View {
         do {
             let res: TokenList = try await state.client().get("/api/v1/reports/tokens")
             token = res.tokens[report.id]
-        } catch { error = error.localizedDescription }
+        } catch { self.error = error.localizedDescription }
     }
 
     private func act(_ action: String) async {
         busy = true; error = nil
         do {
             token = try await state.share(report.id, action: action)
-        } catch { error = error.localizedDescription }
+        } catch { self.error = error.localizedDescription }
         busy = false
     }
 }
