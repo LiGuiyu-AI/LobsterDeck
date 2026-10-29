@@ -493,7 +493,8 @@ class Handler(BaseHTTPRequestHandler):
             elif p == "/api/v1/files":
                 self._json(200, files_list(q.get("path", [""])[0]))
             elif p == "/api/v1/files/recent":
-                self._json(200, {"items": files_recent(int(q.get("limit", ["20"])[0]))})
+                items = files_recent(int(q.get("limit", ["20"])[0]))
+                self._json(200, {"items": [dict(it, mtime=iso(it["mtime"])) for it in items]})
             elif p == "/api/v1/files/raw":
                 target = rel_safe(q.get("path", [""])[0])
                 if not target.is_file():
