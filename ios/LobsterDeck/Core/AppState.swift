@@ -53,6 +53,15 @@ final class AppState {
         }
     }
 
+
+    /// Cancellation is a normal lifecycle event, never a user-facing error.
+    private func visibleError(_ error: Error) -> String? {
+        if error is CancellationError { return nil }
+        let ns = error as NSError
+        if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled { return nil }
+        return error.localizedDescription
+    }
+
     func refreshAll() async {
         guard isConfigured else { return }
         isLoading = true
@@ -71,7 +80,7 @@ final class AppState {
             lastRefresh = Date()
             lastError = nil
         } catch {
-            lastError = error.localizedDescription
+            lastError = visibleError(error)
         }
     }
 
@@ -80,7 +89,7 @@ final class AppState {
         do {
             let r: ReportList = try await client().get("/api/v1/reports")
             reports = r.items
-        } catch { lastError = error.localizedDescription }
+        } catch { lastError = visibleError(error) }
     }
 
     func refreshAgents() async {
@@ -88,7 +97,7 @@ final class AppState {
         do {
             let a: AgentList = try await client().get("/api/v1/agents")
             agents = a.items
-        } catch { lastError = error.localizedDescription }
+        } catch { lastError = visibleError(error) }
     }
 
     func share(_ file: String, action: String) async throws -> String? {
