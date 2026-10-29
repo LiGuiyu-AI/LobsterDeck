@@ -107,8 +107,8 @@ struct FileBrowserView: View {
             if let listing {
                 VStack(alignment: .leading, spacing: 12) {
                     if !listing.dirs.isEmpty {
-                        GlassCard {
-                            VStack(spacing: 2) {
+                        SoftList {
+                            LazyVStack(spacing: 2) {
                                 ForEach(Array(listing.dirs.enumerated()), id: \.element.id) { idx, d in
                                     NavigationLink(value: Route.folder(d.path)) {
                                         HStack(spacing: 12) {
@@ -131,8 +131,8 @@ struct FileBrowserView: View {
                     }
 
                     if !listing.files.isEmpty {
-                        GlassCard {
-                            VStack(spacing: 2) {
+                        SoftList {
+                            LazyVStack(spacing: 2) {
                                 ForEach(Array(listing.files.enumerated()), id: \.element.id) { idx, f in
                                     NavigationLink(value: Route.file(f.path)) {
                                         HStack(spacing: 12) {

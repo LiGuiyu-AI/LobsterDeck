@@ -84,6 +84,7 @@ struct AgentInfo: Codable, Identifiable, Equatable {
     var commits: Int?
     var commits30d: Int?
     var files: Int?
+    var memoryFiles: Int?
     var last: String?
     var recent: [RecentCommit]?
 

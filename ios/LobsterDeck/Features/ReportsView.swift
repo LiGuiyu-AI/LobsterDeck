@@ -123,6 +123,9 @@ struct ReportDetailView: View {
 
             if let html {
                 ReportWebView(html: html, baseURL: assetsURL)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .padding(.horizontal, 8)
+                    .padding(.top, 2)
                     .ignoresSafeArea(edges: .bottom)
             } else if let error {
                 VStack(spacing: 14) {
@@ -182,9 +185,11 @@ struct ReportWebView: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         let wv = WKWebView(frame: .zero, configuration: config)
-        wv.isOpaque = false
-        wv.backgroundColor = .clear
-        wv.scrollView.backgroundColor = .clear
+        wv.isOpaque = true
+        wv.backgroundColor = .white
+        wv.scrollView.backgroundColor = .white
+        wv.underPageBackgroundColor = .white
+        wv.scrollView.contentInsetAdjustmentBehavior = .never
         wv.navigationDelegate = context.coordinator
         wv.allowsBackForwardNavigationGestures = false
         return wv
@@ -193,8 +198,29 @@ struct ReportWebView: UIViewRepresentable {
     func updateUIView(_ wv: WKWebView, context: Context) {
         if context.coordinator.loadedHTML != html {
             context.coordinator.loadedHTML = html
-            wv.loadHTMLString(html, baseURL: baseURL)
+            wv.loadHTMLString(Self.styled(html), baseURL: baseURL)
         }
+    }
+
+    /// Reports were written for a desktop browser: no viewport meta, no
+    /// guaranteed background. Force a light canvas and keep media inside the
+    /// screen, without touching each report's own colours and layout.
+    private static func styled(_ html: String) -> String {
+        let head = """
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light">
+        <style>
+        html{background:#ffffff;color-scheme:light;-webkit-text-size-adjust:100%;}
+        html,body{max-width:100%;overflow-x:hidden;}
+        img,video,svg{max-width:100%;height:auto;}
+        table{max-width:100%;}
+        pre{overflow-x:auto;}
+        </style>
+        """
+        if let r = html.range(of: "<head>", options: [.caseInsensitive]) {
+            return html.replacingCharacters(in: r, with: "<head>" + head)
+        }
+        return head + html
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }

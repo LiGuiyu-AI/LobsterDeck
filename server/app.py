@@ -320,12 +320,25 @@ def agents_overview() -> list:
         d["files"].update(c["files"])
         if len(d["recent"]) < 3:
             d["recent"].append({"sha": c["sha"], "subject": c["subject"], "date": c["date"]})
+
+    # Every directory under Memory/ is an agent, even if it has no recent commits.
+    mem = LC_REPO / "Memory"
+    if mem.is_dir():
+        for d in sorted(mem.iterdir()):
+            if not d.is_dir() or d.name.startswith("."):
+                continue
+            entry = by.setdefault(d.name, {"agent": d.name,
+                                           "label": AGENT_LABELS.get(d.name, d.name),
+                                           "commits": 0, "last": None,
+                                           "files": set(), "recent": []})
+            entry["memory_files"] = sum(1 for p in d.rglob("*.md") if p.is_file())
+
     out = []
     for d in by.values():
         d["files"] = len(d["files"])
         d["commits_30d"] = sum(1 for c in cs if c["agent"] == d["agent"] and _age_days(c["date"]) <= 30)
         out.append(d)
-    out.sort(key=lambda x: x["last"], reverse=True)
+    out.sort(key=lambda x: (x["last"] or "", x["label"]), reverse=True)
     return out
 
 

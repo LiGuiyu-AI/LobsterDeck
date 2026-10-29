@@ -188,3 +188,18 @@ enum Fmt {
         }
     }
 }
+
+
+/// A light, non-glass container for long lists. Liquid Glass on a very tall
+/// card gets expensive and visually heavy, so file/folder lists use this.
+struct SoftList<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(.vertical, 4)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.primary.opacity(0.045), in: .rect(cornerRadius: 18))
+    }
+}

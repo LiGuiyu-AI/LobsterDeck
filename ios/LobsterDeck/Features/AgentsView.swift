@@ -46,13 +46,14 @@ struct AgentRow: View {
                 HStack(spacing: 8) {
                     Text("\(agent.commits30d ?? 0) 次 / 30天")
                     Text("·")
-                    Text("\(agent.files ?? 0) 个记忆文件")
+                    Text("\(agent.memoryFiles ?? agent.files ?? 0) 个记忆文件")
                 }
                 .font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text(Fmt.relative(agent.last)).font(.caption2).foregroundStyle(.secondary)
+                Text(agent.last == nil ? "暂无提交" : Fmt.relative(agent.last))
+                    .font(.caption2).foregroundStyle(.secondary)
                 RowChevron()
             }
         }
