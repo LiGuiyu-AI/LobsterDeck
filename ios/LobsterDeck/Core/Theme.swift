@@ -1,0 +1,190 @@
+import SwiftUI
+
+// MARK: - Palette
+
+extension Color {
+    init(hex: UInt32, alpha: Double = 1) {
+        self.init(.sRGB,
+                  red: Double((hex >> 16) & 0xFF) / 255,
+                  green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255,
+                  opacity: alpha)
+    }
+
+    static let lobster = Color(hex: 0xFF7A18)
+    static let lobsterDeep = Color(hex: 0xE8500A)
+    static let lobsterSoft = Color(hex: 0xFFB067)
+    static let ink = Color(hex: 0x1C120B)
+}
+
+enum Theme {
+    static let corner: CGFloat = 26
+    static let gap: CGFloat = 14
+
+    static func bg(_ scheme: ColorScheme) -> [Color] {
+        scheme == .dark
+        ? [Color(hex: 0x120A05), Color(hex: 0x24120A), Color(hex: 0x0D0704)]
+        : [Color(hex: 0xFFF9F3), Color(hex: 0xFFE7D2), Color(hex: 0xFFFDFB)]
+    }
+}
+
+// MARK: - Background
+
+struct AppBackground: View {
+    @Environment(\.colorScheme) private var scheme
+    @State private var drift = false
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: Theme.bg(scheme), startPoint: .topLeading, endPoint: .bottomTrailing)
+
+            Circle()
+                .fill(Color.lobster.opacity(scheme == .dark ? 0.42 : 0.32))
+                .frame(width: 420, height: 420)
+                .blur(radius: 110)
+                .offset(x: drift ? -120 : -60, y: drift ? -260 : -200)
+
+            Circle()
+                .fill(Color(hex: 0xFF3D00).opacity(scheme == .dark ? 0.28 : 0.18))
+                .frame(width: 360, height: 360)
+                .blur(radius: 120)
+                .offset(x: drift ? 150 : 110, y: drift ? 220 : 300)
+
+            if scheme == .dark {
+                Rectangle().fill(.black.opacity(0.12)).blendMode(.overlay)
+            }
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 14).repeatForever(autoreverses: true), value: drift)
+        .onAppear { drift = true }
+    }
+}
+
+// MARK: - Glass surfaces
+
+struct GlassCard<Content: View>: View {
+    var tint: Color = .lobster
+    var radius: CGFloat = Theme.corner
+    var padding: CGFloat = 18
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular.tint(tint.opacity(0.16)).interactive(),
+                         in: .rect(cornerRadius: radius))
+    }
+}
+
+struct GlassPill: View {
+    let text: String
+    var icon: String? = nil
+    var tint: Color = .lobster
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let icon { Image(systemName: icon).font(.caption.weight(.semibold)) }
+            Text(text).font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(.primary.opacity(0.9))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .glassEffect(.regular.tint(tint.opacity(0.22)), in: .capsule)
+    }
+}
+
+// MARK: - Small parts
+
+struct SectionHeader: View {
+    let title: String
+    var subtitle: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.headline.weight(.semibold))
+            if let subtitle {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+    }
+}
+
+struct EmptyHint: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 26, weight: .light))
+                .foregroundStyle(.secondary)
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 26)
+    }
+}
+
+struct RowChevron: View {
+    var body: some View {
+        Image(systemName: "chevron.right")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.tertiary)
+    }
+}
+
+// MARK: - Formatting
+
+enum Fmt {
+    static let iso: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    static let isoLoose: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static func date(_ s: String?) -> Date? {
+        guard let s else { return nil }
+        return iso.date(from: s) ?? isoLoose.date(from: s)
+    }
+
+    static func relative(_ s: String?) -> String {
+        guard let d = date(s) else { return s ?? "" }
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .short
+        return f.localizedString(for: d, relativeTo: Date())
+    }
+
+    static func day(_ s: String?) -> String {
+        guard let d = date(s) else { return s ?? "" }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日 HH:mm"
+        return f.string(from: d)
+    }
+
+    static func greeting() -> String {
+        let h = Calendar.current.component(.hour, from: Date())
+        switch h {
+        case 5..<11: return "早上好"
+        case 11..<13: return "中午好"
+        case 13..<18: return "下午好"
+        case 18..<23: return "晚上好"
+        default: return "夜深了"
+        }
+    }
+}

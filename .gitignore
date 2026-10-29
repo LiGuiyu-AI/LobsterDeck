@@ -1,0 +1,15 @@
+# Xcode
+ios/*.xcodeproj
+ios/*.xcworkspace
+ios/build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Local state
+server/token.txt
