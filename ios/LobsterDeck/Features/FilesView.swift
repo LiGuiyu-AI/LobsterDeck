@@ -117,8 +117,8 @@ struct FileBrowserView: View {
                 content
             }
         }
-        .navigationTitle(path.isEmpty ? "文件站" : (path as NSString).lastPathComponent)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(path.isEmpty ? "文件" : (path as NSString).lastPathComponent)
+        .navigationBarTitleDisplayMode(scrolls ? .inline : .large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { importing = true } label: {
