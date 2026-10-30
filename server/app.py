@@ -765,15 +765,64 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         if not self._guard():
             return
-        if urlparse(self.path).path != "/api/v1/home/layout":
-            self._json(404, {"error": "not found"})
-            return
+        path = urlparse(self.path).path
         try:
-            layout = read_json(self)
-            if not isinstance(layout.get("modules"), list):
-                raise ValueError("modules required")
-            save_layout(layout)
-            self._json(200, {"ok": True, "updated_at": load_layout().get("updated_at")})
+            if path == "/api/v1/home/layout":
+                layout = read_json(self)
+                if not isinstance(layout.get("modules"), list):
+                    raise ValueError("modules required")
+                save_layout(layout)
+                self._json(200, {"ok": True, "updated_at": load_layout().get("updated_at")})
+                return
+
+            # Single-module upsert: several agents can update their own card
+            # without clobbering the whole layout.
+            if path.startswith("/api/v1/home/modules/"):
+                mod_id = unquote(path[len("/api/v1/home/modules/"):]).strip()
+                if not mod_id:
+                    raise ValueError("module id required")
+                module = read_json(self)
+                if not isinstance(module, dict):
+                    raise ValueError("module object required")
+                module["id"] = mod_id
+
+                layout = load_layout()
+                modules = [m for m in layout.get("modules", []) if m.get("id") != mod_id]
+                anchor = module.pop("after", None) or module.pop("before", None)
+                index = len(modules)
+                if anchor:
+                    for i, m in enumerate(modules):
+                        if m.get("id") == anchor:
+                            index = i + 1
+                            break
+                modules.insert(index, module)
+                layout["modules"] = modules
+                save_layout(layout)
+                self._json(200, {"ok": True, "id": mod_id,
+                                 "updated_at": load_layout().get("updated_at")})
+                return
+
+            self._json(404, {"error": "not found"})
+        except Exception as e:
+            self._json(400, {"error": str(e)[:300]})
+
+    def do_DELETE(self):
+        if not self._guard():
+            return
+        path = urlparse(self.path).path
+        try:
+            if path.startswith("/api/v1/home/modules/"):
+                mod_id = unquote(path[len("/api/v1/home/modules/"):]).strip()
+                layout = load_layout()
+                before = len(layout.get("modules", []))
+                layout["modules"] = [m for m in layout.get("modules", []) if m.get("id") != mod_id]
+                if len(layout["modules"]) == before:
+                    self._json(404, {"error": "module not found"})
+                    return
+                save_layout(layout)
+                self._json(200, {"ok": True, "removed": mod_id})
+                return
+            self._json(404, {"error": "not found"})
         except Exception as e:
             self._json(400, {"error": str(e)[:300]})
 
