@@ -273,7 +273,28 @@ def git(*args, timeout: int = 30) -> str:
     return p.stdout
 
 
-def agent_of(files: list):
+def known_agents() -> set:
+    names = set(AGENT_LABELS)
+    mem = LC_REPO / "Memory"
+    try:
+        names |= {p.name for p in mem.iterdir() if p.is_dir() and not p.name.startswith(".")}
+    except OSError:
+        pass
+    return names
+
+
+def agent_of(files: list, trailer: str = "", author: str = ""):
+    # 2026-10-30: 归属口径与 agent.liguiyu.com 看板对齐 —— trailer -> 作者 -> 记忆目录。
+    # 优先用提交里的 "Agent: <名字>" trailer；没写 trailer 的旧提交，若作者本身就是
+    # 标准 Agent 名则归给作者；最后才回退到「改动最多的 Memory/<Agent>/ 目录」。
+    # 这样改别人的记忆目录不会再被算成自己的提交。
+    for name in re.split(r"[,;]", trailer or ""):
+        name = name.strip()
+        if name:
+            return name
+    author = (author or "").strip()
+    if author and author in known_agents():
+        return author
     counts = {}
     for f in files:
         m = re.match(r"Memory/([^/]+)/", f)
@@ -284,7 +305,9 @@ def agent_of(files: list):
 
 def commits(limit: int = 60, path: str = "Memory") -> list:
     raw = git("log", f"-{limit}", "--date=iso-strict",
-              "--pretty=format:@@@%H%x1f%an%x1f%ad%x1f%s", "--name-only", "--", path)
+              "--pretty=format:@@@%H%x1f%an%x1f%ad%x1f%s"
+              "%x1f%(trailers:key=Agent,valueonly,separator=%x2C)",
+              "--name-only", "--", path)
     out = []
     for block in raw.split("@@@"):
         block = block.strip("\n")
@@ -295,8 +318,10 @@ def commits(limit: int = 60, path: str = "Memory") -> list:
         if len(head) < 4:
             continue
         files = [l.strip() for l in lines[1:] if l.strip()]
+        trailer = head[4] if len(head) > 4 else ""
         out.append({"sha": head[0], "author": head[1], "date": head[2],
-                    "subject": head[3], "files": files, "agent": agent_of(files)})
+                    "subject": head[3], "files": files,
+                    "agent": agent_of(files, trailer, head[1])})
     return out
 
 
@@ -372,7 +397,7 @@ AGENT_COLORS = {
     "DeepSeekHarness": "#4D6BFE", "WorkBuddy": "#F2B01E", "Reasonix": "#FF5C8A",
     "Pi": "#14B8A6", "OpenCode": "#A3E635", "Cursor": "#C7C9D1",
     "Antigravity": "#8B5CF6", "Codex": "#10A37F", "Gemini": "#4285F4",
-    "Muse": "#7C5CFF",
+    "Muse": "#1877F2",
 }
 FALLBACK_COLORS = ["#FF7A18", "#4D6BFE", "#2FBF71", "#FF5C8A", "#8B5CF6", "#F2B01E"]
 
