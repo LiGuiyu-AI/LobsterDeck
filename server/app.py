@@ -372,6 +372,7 @@ AGENT_COLORS = {
     "DeepSeekHarness": "#4D6BFE", "WorkBuddy": "#F2B01E", "Reasonix": "#FF5C8A",
     "Pi": "#14B8A6", "OpenCode": "#A3E635", "Cursor": "#C7C9D1",
     "Antigravity": "#8B5CF6", "Codex": "#10A37F", "Gemini": "#4285F4",
+    "Muse": "#7C5CFF",
 }
 FALLBACK_COLORS = ["#FF7A18", "#4D6BFE", "#2FBF71", "#FF5C8A", "#8B5CF6", "#F2B01E"]
 
@@ -384,6 +385,7 @@ ICON_MAP = {
     "KimiCode": "kimi.png", "Pi": "pi.png", "Qoder": "qoder.png",
     "Reasonix": "reasonix.png", "Antigravity": "antigravity.png",
     "WorkBuddy": "workbuddy.png", "ZCode": "zcode.png",
+    "Muse": "muse.png",
 }
 
 
