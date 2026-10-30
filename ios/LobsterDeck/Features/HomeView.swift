@@ -303,7 +303,7 @@ struct HomeView: View {
         case .folder(let path): FileBrowserView(path: path)
         case .file(let path): FilePreviewScreen(path: path)
         case .agent(let name): AgentDetailView(agent: name)
-        case .commit(let sha): CommitDetailView(sha: sha)
+        case .commit(let sha, let tint): CommitDetailView(sha: sha, tintHex: tint)
         case .memory(let p): MemoryBrowser(path: p)
         case .memoryFile(let p): MemoryFileView(path: p)
         }

@@ -116,7 +116,7 @@ enum Route: Hashable {
     case folder(String)
     case file(String)
     case agent(String)
-    case commit(String)
+    case commit(String, String?)
     case memory(String)
     case memoryFile(String)
 }

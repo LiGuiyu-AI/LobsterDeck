@@ -376,11 +376,14 @@ AGENT_COLORS = {
 FALLBACK_COLORS = ["#FF7A18", "#4D6BFE", "#2FBF71", "#FF5C8A", "#8B5CF6", "#F2B01E"]
 
 
-ICON_DIR = Path("/opt/openclaw/.openclaw/data/agent-activity/icons")
+ICON_DIR = Path("/vol1/1000/Docker/LobsterDeck/icons")
 ICON_MAP = {
-    "OpenClaw": "openclaw.png", "Cursor": "cursor.png", "DeepSeekHarness": "deepseek.png",
-    "Gemini": "gemini.png", "KimiCode": "kimi.png", "Pi": "pi.png", "Qoder": "qoder.png",
+    "OpenClaw": "openclaw.png", "ClaudeCode": "claude.png", "Codex": "codex.png",
+    "GitHubCopilot": "githubcopilot.png", "OpenCode": "opencode.png",
+    "Cursor": "cursor.png", "DeepSeekHarness": "deepseek.png", "Gemini": "gemini.png",
+    "KimiCode": "kimi.png", "Pi": "pi.png", "Qoder": "qoder.png",
     "Reasonix": "reasonix.png", "Antigravity": "antigravity.png",
+    "WorkBuddy": "workbuddy.png", "ZCode": "zcode.png",
 }
 
 

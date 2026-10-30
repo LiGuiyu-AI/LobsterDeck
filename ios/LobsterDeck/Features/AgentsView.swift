@@ -1,4 +1,16 @@
 import SwiftUI
+import UIKit
+
+private struct AgentTintKey: EnvironmentKey {
+    static let defaultValue: Color? = nil
+}
+
+extension EnvironmentValues {
+    var agentTint: Color? {
+        get { self[AgentTintKey.self] }
+        set { self[AgentTintKey.self] = newValue }
+    }
+}
 
 struct AgentsView: View {
     @Environment(AppState.self) private var state
@@ -37,7 +49,7 @@ struct AgentsView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .agent(let a): AgentDetailView(agent: a)
-                case .commit(let sha): CommitDetailView(sha: sha)
+                case .commit(let sha, let tint): CommitDetailView(sha: sha, tintHex: tint)
                 default: EmptyView()
                 }
             }
@@ -74,15 +86,8 @@ struct AgentRow: View {
             }
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(LinearGradient(colors: [color.opacity(0.22), color.opacity(0.04)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(color.opacity(0.30), lineWidth: 0.8)
-        )
+        .glassEffect(.regular.tint(color.opacity(0.22)).interactive(),
+                     in: .rect(cornerRadius: 20))
         .contentShape(Rectangle())
     }
 
@@ -131,7 +136,7 @@ struct AgentDetailView: View {
             LazyVStack(spacing: 10) {
                 header
                 ForEach(commits) { c in
-                    NavigationLink(value: Route.commit(c.sha)) {
+                    NavigationLink(value: Route.commit(c.sha, info?.color)) {
                         CommitRow(commit: c, tint: color)
                     }
                     .buttonStyle(.plain)
@@ -148,10 +153,14 @@ struct AgentDetailView: View {
         }
         .background(
             ZStack {
-                AppBackground()
-                color.opacity(0.10).ignoresSafeArea()
+                Color(uiColor: .systemBackground)
+                LinearGradient(colors: [color.opacity(0.38), color.opacity(0.10), .clear],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
             }
+            .ignoresSafeArea()
         )
+        .environment(\.agentTint, color)
+        .tint(color)
         .navigationTitle(info?.displayName ?? agent)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
@@ -222,6 +231,8 @@ struct CommitDetailView: View {
 
     @State private var detail: CommitDetail?
     @State private var error: String?
+    var tintHex: String? = nil
+    private var tint: Color? { Color(hexString: tintHex) }
 
     private var lines: [String] {
         guard let patch = detail?.patch else { return [] }
@@ -267,7 +278,18 @@ struct CommitDetailView: View {
             }
             .padding(16)
         }
-        .background(AppBackground())
+        .background(
+            ZStack {
+                if let tint {
+                    Color(uiColor: .systemBackground)
+                    LinearGradient(colors: [tint.opacity(0.30), tint.opacity(0.06), .clear],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                } else {
+                    AppBackground()
+                }
+            }
+            .ignoresSafeArea()
+        )
         .navigationTitle("变更详情")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
