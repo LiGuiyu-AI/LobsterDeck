@@ -110,6 +110,24 @@ cd ios && xcodegen generate
 open LobsterDeck.xcodeproj
 ```
 
+
+## 构建（Codemagic）
+
+仓库内置 `codemagic.yaml`（workflow `ios-unsigned`，`mac_mini_m2`，Xcode latest）。
+
+1. Codemagic 应用 `LobsterDeck`（appId `6ae3e4bcd0c7a091338cf6c7`）已连接 `programmingWTF/LobsterDeck`；
+2. 推送 main 后在 Codemagic 触发，或用 API：
+
+```bash
+curl -X POST https://api.codemagic.io/builds \
+  -H "x-auth-token: $CODEMAGIC_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"appId":"6ae3e4bcd0c7a091338cf6c7","workflowId":"ios-unsigned","branch":"main"}'
+```
+
+3. 产物：`LobsterDeck-unsigned.ipa`（未签名），下载后自行签名安装。
+
+GitHub Actions 仅保留为备用（macOS runner 排队严重）。
+
 ## 部署服务
 
 ```bash
