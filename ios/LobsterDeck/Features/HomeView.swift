@@ -207,7 +207,24 @@ struct HomeView: View {
                     .buttonStyle(.plain)
             } else { DeckRow(item: item, icon: "doc.text", tint: .brown) }
         default:
-            DeckRow(item: item, icon: "circle.fill", tint: .lobster)
+            if let id = item.id {
+                NavigationLink(value: Route.report(id)) {
+                    DeckRow(item: item, icon: "doc.text.fill", tint: .lobster)
+                }
+                .buttonStyle(.plain)
+            } else if let path = item.path {
+                NavigationLink(value: Route.file(path)) {
+                    DeckRow(item: item, icon: "doc.fill", tint: .orange)
+                }
+                .buttonStyle(.plain)
+            } else if let s = item.url, let url = URL(string: s) {
+                Link(destination: url) {
+                    DeckRow(item: item, icon: item.icon ?? "arrow.up.right", tint: .lobster)
+                }
+                .buttonStyle(.plain)
+            } else {
+                DeckRow(item: item, icon: item.icon ?? "circle.fill", tint: .lobster)
+            }
         }
     }
 
